@@ -6,17 +6,23 @@
 
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import plotly.express as px
 import plotly.graph_objects as go
 from google.oauth2.service_account import Credentials
 import gspread
 
+# ===== 日本時間 =====
+JST = timezone(timedelta(hours=9))
+
+def get_japan_time():
+    """日本時間を取得"""
+    return datetime.now(JST)
+
 # ===== Google Sheets接続 =====
 
-@st.cache_resource
 def get_google_connection():
-    """Google Sheetsへの接続を取得（キャッシュ）"""
+    """Google Sheetsへの接続を取得"""
     scopes = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
@@ -34,6 +40,18 @@ def get_spreadsheet():
     spreadsheet_url = st.secrets["spreadsheet_url"]
     return client.open_by_url(spreadsheet_url)
 
+# ===== 時間フォーマット関数 =====
+
+def format_time_simple(time_str):
+    """時間を「16時10分」形式に変換"""
+    try:
+        time_obj = datetime.strptime(time_str, "%H:%M:%S")
+        hour = time_obj.hour
+        minute = time_obj.minute
+        return f"{hour}時{minute:02d}分"
+    except:
+        return time_str
+
 # ===== データ管理関数 =====
 
 def load_pee_data():
@@ -44,7 +62,6 @@ def load_pee_data():
         records = worksheet.get_all_records()
         return records
     except gspread.exceptions.WorksheetNotFound:
-        # シートがなければ作成
         spreadsheet = get_spreadsheet()
         worksheet = spreadsheet.add_worksheet(title="トイレ記録", rows=1000, cols=3)
         worksheet.append_row(["date", "time", "datetime"])
@@ -77,7 +94,6 @@ def load_bp_data():
         records = worksheet.get_all_records()
         return records
     except gspread.exceptions.WorksheetNotFound:
-        # シートがなければ作成
         spreadsheet = get_spreadsheet()
         worksheet = spreadsheet.add_worksheet(title="血圧記録", rows=1000, cols=7)
         worksheet.append_row(["date", "time", "datetime", "systolic", "diastolic", "pulse", "memo"])
@@ -114,12 +130,12 @@ def save_bp_record(record):
 
 def get_today_pee_count(pee_data):
     """今日のトイレ回数を取得"""
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = get_japan_time().strftime("%Y-%m-%d")
     return len([r for r in pee_data if r.get("date") == today])
 
 def get_weekly_pee_data(pee_data):
     """過去7日間のトイレデータを集計"""
-    today = datetime.now().date()
+    today = get_japan_time().date()
     weekly_data = {}
     
     for i in range(6, -1, -1):
@@ -163,6 +179,20 @@ st.markdown("""
         font-size: 16px;
         padding: 10px 20px;
     }
+    
+    /* 記録リストの時間を大きく表示 */
+    .time-display {
+        font-size: 24px;
+        font-weight: bold;
+        padding: 12px 0;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .time-number {
+        font-size: 20px;
+        color: #666;
+        margin-right: 10px;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -178,15 +208,14 @@ with tab1:
     
     # 記録ボタン
     if st.button("トイレに行った", use_container_width=True, type="primary"):
-        now = datetime.now()
+        now = get_japan_time()
         new_record = {
             "date": now.strftime("%Y-%m-%d"),
             "time": now.strftime("%H:%M:%S"),
             "datetime": now.strftime("%Y-%m-%d %H:%M:%S")
         }
         if save_pee_record(new_record):
-            st.success(f"記録しました ({now.strftime('%H:%M')})")
-            st.cache_resource.clear()
+            st.success(f"記録しました ({now.strftime('%H')}時{now.strftime('%M')}分)")
             st.rerun()
     
     st.markdown("---")
@@ -197,12 +226,19 @@ with tab1:
     
     # 今日の記録一覧
     st.subheader("今日の記録")
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = get_japan_time().strftime("%Y-%m-%d")
     today_records = [r for r in pee_data if r.get("date") == today]
     
     if today_records:
         for i, record in enumerate(today_records, 1):
-            st.text(f"{i}. {record.get('time', '')}")
+            time_str = record.get('time', '')
+            formatted_time = format_time_simple(time_str)
+            st.markdown(
+                f'<div class="time-display">'
+                f'<span class="time-number">{i}.</span>{formatted_time}'
+                f'</div>', 
+                unsafe_allow_html=True
+            )
     else:
         st.info("まだ記録がありません")
     
@@ -276,7 +312,7 @@ with tab2:
         submitted = st.form_submit_button("記録する", use_container_width=True)
         
         if submitted:
-            now = datetime.now()
+            now = get_japan_time()
             new_record = {
                 "date": now.strftime("%Y-%m-%d"),
                 "time": now.strftime("%H:%M:%S"),
@@ -288,7 +324,6 @@ with tab2:
             }
             if save_bp_record(new_record):
                 st.success(f"記録しました ({systolic}/{diastolic} mmHg)")
-                st.cache_resource.clear()
                 st.rerun()
     
     st.markdown("---")
