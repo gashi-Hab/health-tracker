@@ -86,6 +86,18 @@ def save_pee_record(record):
         st.error(f"保存エラー: {e}")
         return False
 
+def delete_pee_record(row_index):
+    """トイレ記録を削除（row_indexはデータの0始まりインデックス）"""
+    try:
+        spreadsheet = get_spreadsheet()
+        worksheet = spreadsheet.worksheet("トイレ記録")
+        # ヘッダー行があるので+2（1始まり + ヘッダー分）
+        worksheet.delete_rows(row_index + 2)
+        return True
+    except Exception as e:
+        st.error(f"削除エラー: {e}")
+        return False
+
 def load_bp_data():
     """血圧記録を読み込む"""
     try:
@@ -126,6 +138,17 @@ def save_bp_record(record):
         st.error(f"保存エラー: {e}")
         return False
 
+def delete_bp_record(row_index):
+    """血圧記録を削除"""
+    try:
+        spreadsheet = get_spreadsheet()
+        worksheet = spreadsheet.worksheet("血圧記録")
+        worksheet.delete_rows(row_index + 2)
+        return True
+    except Exception as e:
+        st.error(f"削除エラー: {e}")
+        return False
+
 # ===== 集計関数 =====
 
 def get_today_pee_count(pee_data):
@@ -160,6 +183,12 @@ st.set_page_config(
 # ===== スマホ向けCSS =====
 st.markdown("""
 <style>
+    /* 上部に余白を追加（Forkバー対策） */
+    .block-container {
+        padding-top: 3rem;
+        padding-bottom: 1rem;
+    }
+    
     .stButton > button {
         height: 80px;
         font-size: 20px;
@@ -168,11 +197,6 @@ st.markdown("""
     
     [data-testid="stMetricValue"] {
         font-size: 36px;
-    }
-    
-    .block-container {
-        padding-top: 1rem;
-        padding-bottom: 1rem;
     }
     
     .stTabs [data-baseweb="tab"] {
@@ -193,6 +217,13 @@ st.markdown("""
         color: #666;
         margin-right: 10px;
     }
+    
+    /* 削除ボタンを小さく */
+    .delete-btn button {
+        height: 40px !important;
+        font-size: 14px !important;
+        background-color: #ff4b4b !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -200,14 +231,14 @@ st.markdown("""
 st.title("健康管理")
 
 # タブで機能を分ける
-tab1, tab2 = st.tabs(["トイレ記録", "血圧記録"])
+tab1, tab2, tab3 = st.tabs(["トイレ記録", "血圧記録", "削除"])
 
 # ===== タブ1: トイレ記録 =====
 with tab1:
     pee_data = load_pee_data()
     
     # 記録ボタン
-    if st.button("トイレに行った", use_container_width=True, type="primary"):
+    if st.button("トイレに行った", use_container_width=True, type="primary", key="pee_btn"):
         now = get_japan_time()
         new_record = {
             "date": now.strftime("%Y-%m-%d"),
@@ -383,3 +414,62 @@ with tab2:
         st.dataframe(df_display.iloc[::-1].head(10), use_container_width=True, hide_index=True)
     else:
         st.info("まだ血圧の記録がありません")
+
+# ===== タブ3: 削除 =====
+with tab3:
+    st.subheader("記録を削除")
+    st.warning("削除すると元に戻せません")
+    
+    delete_type = st.radio("削除する記録", ["トイレ記録", "血圧記録"], horizontal=True)
+    
+    if delete_type == "トイレ記録":
+        pee_data = load_pee_data()
+        
+        if pee_data:
+            st.markdown("**最新の記録から削除できます**")
+            
+            # 最新5件を表示
+            recent_records = pee_data[-5:] if len(pee_data) >= 5 else pee_data
+            recent_records = list(reversed(recent_records))
+            
+            for i, record in enumerate(recent_records):
+                original_index = len(pee_data) - 1 - i
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    date_str = record.get('date', '')
+                    time_str = record.get('time', '')
+                    formatted_time = format_time_simple(time_str)
+                    st.write(f"{date_str}  {formatted_time}")
+                with col2:
+                    if st.button("削除", key=f"del_pee_{original_index}", type="secondary"):
+                        if delete_pee_record(original_index):
+                            st.success("削除しました")
+                            st.rerun()
+        else:
+            st.info("記録がありません")
+    
+    else:  # 血圧記録
+        bp_data = load_bp_data()
+        
+        if bp_data:
+            st.markdown("**最新の記録から削除できます**")
+            
+            # 最新5件を表示
+            recent_records = bp_data[-5:] if len(bp_data) >= 5 else bp_data
+            recent_records = list(reversed(recent_records))
+            
+            for i, record in enumerate(recent_records):
+                original_index = len(bp_data) - 1 - i
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    date_str = record.get('date', '')
+                    systolic = record.get('systolic', '-')
+                    diastolic = record.get('diastolic', '-')
+                    st.write(f"{date_str}  {systolic}/{diastolic}")
+                with col2:
+                    if st.button("削除", key=f"del_bp_{original_index}", type="secondary"):
+                        if delete_bp_record(original_index):
+                            st.success("削除しました")
+                            st.rerun()
+        else:
+            st.info("記録がありません")
