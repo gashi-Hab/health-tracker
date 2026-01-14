@@ -282,7 +282,7 @@ with tab1:
     st.markdown("---")
     
     # 今週のグラフ（日曜〜土曜）
-    st.subheader("今週の記録（日〜土）")
+    st.subheader("今週の記録")
     
     weekly_data = get_weekly_pee_data(pee_data)
     
