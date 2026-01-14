@@ -157,14 +157,20 @@ def get_today_pee_count(pee_data):
     return len([r for r in pee_data if r.get("date") == today])
 
 def get_weekly_pee_data(pee_data):
-    """過去7日間のトイレデータを集計"""
+    """今週（日曜〜土曜）のトイレデータを集計"""
     today = get_japan_time().date()
-    weekly_data = {}
     
-    for i in range(6, -1, -1):
-        date = (today - timedelta(days=i)).strftime("%Y-%m-%d")
+    # 今週の日曜日を計算（weekday: 月=0, 火=1, ..., 日=6）
+    days_since_sunday = (today.weekday() + 1) % 7
+    sunday = today - timedelta(days=days_since_sunday)
+    
+    # 日曜〜土曜の7日間を生成
+    weekly_data = {}
+    for i in range(7):
+        date = (sunday + timedelta(days=i)).strftime("%Y-%m-%d")
         weekly_data[date] = 0
     
+    # 記録をカウント
     for record in pee_data:
         date = record.get("date", "")
         if date in weekly_data:
@@ -275,16 +281,24 @@ with tab1:
     
     st.markdown("---")
     
-    # 一週間のグラフ
-    st.subheader("過去7日間")
+    # 今週のグラフ（日曜〜土曜）
+    st.subheader("今週の記録（日〜土）")
     
     weekly_data = get_weekly_pee_data(pee_data)
     
+    # 曜日ラベルを作成
+    weekday_labels = ["日", "月", "火", "水", "木", "金", "土"]
+    dates = list(weekly_data.keys())
+    display_labels = []
+    for i, date in enumerate(dates):
+        day = pd.to_datetime(date).strftime("%m/%d")
+        display_labels.append(f"{day}({weekday_labels[i]})")
+    
     df_weekly = pd.DataFrame({
-        "日付": list(weekly_data.keys()),
-        "回数": list(weekly_data.values())
+        "日付": dates,
+        "回数": list(weekly_data.values()),
+        "表示日付": display_labels
     })
-    df_weekly["表示日付"] = pd.to_datetime(df_weekly["日付"]).dt.strftime("%m/%d")
     
     fig = px.bar(
         df_weekly,
