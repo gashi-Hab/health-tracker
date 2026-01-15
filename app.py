@@ -52,18 +52,18 @@ def format_time_simple(time_str):
     except:
         return time_str
 
-# ===== データ管理関数 =====
+# ===== おしっこデータ管理関数 =====
 
 def load_pee_data():
-    """トイレ記録を読み込む"""
+    """おしっこ記録を読み込む"""
     try:
         spreadsheet = get_spreadsheet()
-        worksheet = spreadsheet.worksheet("トイレ記録")
+        worksheet = spreadsheet.worksheet("おしっこ記録")
         records = worksheet.get_all_records()
         return records
     except gspread.exceptions.WorksheetNotFound:
         spreadsheet = get_spreadsheet()
-        worksheet = spreadsheet.add_worksheet(title="トイレ記録", rows=1000, cols=3)
+        worksheet = spreadsheet.add_worksheet(title="おしっこ記録", rows=1000, cols=3)
         worksheet.append_row(["date", "time", "datetime"])
         return []
     except Exception as e:
@@ -71,13 +71,13 @@ def load_pee_data():
         return []
 
 def save_pee_record(record):
-    """トイレ記録を1件追加"""
+    """おしっこ記録を1件追加"""
     try:
         spreadsheet = get_spreadsheet()
         try:
-            worksheet = spreadsheet.worksheet("トイレ記録")
+            worksheet = spreadsheet.worksheet("おしっこ記録")
         except gspread.exceptions.WorksheetNotFound:
-            worksheet = spreadsheet.add_worksheet(title="トイレ記録", rows=1000, cols=3)
+            worksheet = spreadsheet.add_worksheet(title="おしっこ記録", rows=1000, cols=3)
             worksheet.append_row(["date", "time", "datetime"])
         
         worksheet.append_row([record["date"], record["time"], record["datetime"]])
@@ -87,16 +87,62 @@ def save_pee_record(record):
         return False
 
 def delete_pee_record(row_index):
-    """トイレ記録を削除（row_indexはデータの0始まりインデックス）"""
+    """おしっこ記録を削除"""
     try:
         spreadsheet = get_spreadsheet()
-        worksheet = spreadsheet.worksheet("トイレ記録")
-        # ヘッダー行があるので+2（1始まり + ヘッダー分）
+        worksheet = spreadsheet.worksheet("おしっこ記録")
         worksheet.delete_rows(row_index + 2)
         return True
     except Exception as e:
         st.error(f"削除エラー: {e}")
         return False
+
+# ===== うんこデータ管理関数 =====
+
+def load_poop_data():
+    """うんこ記録を読み込む"""
+    try:
+        spreadsheet = get_spreadsheet()
+        worksheet = spreadsheet.worksheet("うんこ記録")
+        records = worksheet.get_all_records()
+        return records
+    except gspread.exceptions.WorksheetNotFound:
+        spreadsheet = get_spreadsheet()
+        worksheet = spreadsheet.add_worksheet(title="うんこ記録", rows=1000, cols=3)
+        worksheet.append_row(["date", "time", "datetime"])
+        return []
+    except Exception as e:
+        st.error(f"データ読み込みエラー: {e}")
+        return []
+
+def save_poop_record(record):
+    """うんこ記録を1件追加"""
+    try:
+        spreadsheet = get_spreadsheet()
+        try:
+            worksheet = spreadsheet.worksheet("うんこ記録")
+        except gspread.exceptions.WorksheetNotFound:
+            worksheet = spreadsheet.add_worksheet(title="うんこ記録", rows=1000, cols=3)
+            worksheet.append_row(["date", "time", "datetime"])
+        
+        worksheet.append_row([record["date"], record["time"], record["datetime"]])
+        return True
+    except Exception as e:
+        st.error(f"保存エラー: {e}")
+        return False
+
+def delete_poop_record(row_index):
+    """うんこ記録を削除"""
+    try:
+        spreadsheet = get_spreadsheet()
+        worksheet = spreadsheet.worksheet("うんこ記録")
+        worksheet.delete_rows(row_index + 2)
+        return True
+    except Exception as e:
+        st.error(f"削除エラー: {e}")
+        return False
+
+# ===== 血圧データ管理関数 =====
 
 def load_bp_data():
     """血圧記録を読み込む"""
@@ -151,16 +197,16 @@ def delete_bp_record(row_index):
 
 # ===== 集計関数 =====
 
-def get_today_pee_count(pee_data):
-    """今日のトイレ回数を取得"""
+def get_today_count(data):
+    """今日の回数を取得"""
     today = get_japan_time().strftime("%Y-%m-%d")
-    return len([r for r in pee_data if r.get("date") == today])
+    return len([r for r in data if r.get("date") == today])
 
-def get_weekly_pee_data(pee_data):
-    """今週（日曜〜土曜）のトイレデータを集計"""
+def get_weekly_data(data):
+    """今週（日曜〜土曜）のデータを集計"""
     today = get_japan_time().date()
     
-    # 今週の日曜日を計算（weekday: 月=0, 火=1, ..., 日=6）
+    # 今週の日曜日を計算
     days_since_sunday = (today.weekday() + 1) % 7
     sunday = today - timedelta(days=days_since_sunday)
     
@@ -171,7 +217,7 @@ def get_weekly_pee_data(pee_data):
         weekly_data[date] = 0
     
     # 記録をカウント
-    for record in pee_data:
+    for record in data:
         date = record.get("date", "")
         if date in weekly_data:
             weekly_data[date] += 1
@@ -223,13 +269,6 @@ st.markdown("""
         color: #666;
         margin-right: 10px;
     }
-    
-    /* 削除ボタンを小さく */
-    .delete-btn button {
-        height: 40px !important;
-        font-size: 14px !important;
-        background-color: #ff4b4b !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -237,14 +276,14 @@ st.markdown("""
 st.title("健康管理")
 
 # タブで機能を分ける
-tab1, tab2, tab3 = st.tabs(["トイレ記録", "血圧記録", "削除"])
+tab1, tab2, tab3, tab4 = st.tabs(["おしっこ", "うんこ", "血圧", "削除"])
 
-# ===== タブ1: トイレ記録 =====
+# ===== タブ1: おしっこ記録 =====
 with tab1:
     pee_data = load_pee_data()
     
     # 記録ボタン
-    if st.button("トイレに行った", use_container_width=True, type="primary", key="pee_btn"):
+    if st.button("おしっこした", use_container_width=True, type="primary", key="pee_btn"):
         now = get_japan_time()
         new_record = {
             "date": now.strftime("%Y-%m-%d"),
@@ -258,7 +297,7 @@ with tab1:
     st.markdown("---")
     
     # 今日の回数
-    today_count = get_today_pee_count(pee_data)
+    today_count = get_today_count(pee_data)
     st.metric(label="今日の回数", value=f"{today_count} 回")
     
     # 今日の記録一覧
@@ -282,9 +321,9 @@ with tab1:
     st.markdown("---")
     
     # 今週のグラフ（日曜〜土曜）
-    st.subheader("今週の記録")
+    st.subheader("今週の記録（日〜土）")
     
-    weekly_data = get_weekly_pee_data(pee_data)
+    weekly_data = get_weekly_data(pee_data)
     
     # 曜日ラベルを作成
     weekday_labels = ["日", "月", "火", "水", "木", "金", "土"]
@@ -327,8 +366,96 @@ with tab1:
         avg = sum(weekly_data.values()) / 7
         st.metric("1日平均", f"{avg:.1f} 回")
 
-# ===== タブ2: 血圧記録 =====
+# ===== タブ2: うんこ記録 =====
 with tab2:
+    poop_data = load_poop_data()
+    
+    # 記録ボタン
+    if st.button("うんこした", use_container_width=True, type="primary", key="poop_btn"):
+        now = get_japan_time()
+        new_record = {
+            "date": now.strftime("%Y-%m-%d"),
+            "time": now.strftime("%H:%M:%S"),
+            "datetime": now.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        if save_poop_record(new_record):
+            st.success(f"記録しました ({now.strftime('%H')}時{now.strftime('%M')}分)")
+            st.rerun()
+    
+    st.markdown("---")
+    
+    # 今日の回数
+    today_count = get_today_count(poop_data)
+    st.metric(label="今日の回数", value=f"{today_count} 回")
+    
+    # 今日の記録一覧
+    st.subheader("今日の記録")
+    today = get_japan_time().strftime("%Y-%m-%d")
+    today_records = [r for r in poop_data if r.get("date") == today]
+    
+    if today_records:
+        for i, record in enumerate(today_records, 1):
+            time_str = record.get('time', '')
+            formatted_time = format_time_simple(time_str)
+            st.markdown(
+                f'<div class="time-display">'
+                f'<span class="time-number">{i}.</span>{formatted_time}'
+                f'</div>', 
+                unsafe_allow_html=True
+            )
+    else:
+        st.info("まだ記録がありません")
+    
+    st.markdown("---")
+    
+    # 今週のグラフ（日曜〜土曜）
+    st.subheader("今週の記録（日〜土）")
+    
+    weekly_data = get_weekly_data(poop_data)
+    
+    # 曜日ラベルを作成
+    weekday_labels = ["日", "月", "火", "水", "木", "金", "土"]
+    dates = list(weekly_data.keys())
+    display_labels = []
+    for i, date in enumerate(dates):
+        day = pd.to_datetime(date).strftime("%m/%d")
+        display_labels.append(f"{day}({weekday_labels[i]})")
+    
+    df_weekly = pd.DataFrame({
+        "日付": dates,
+        "回数": list(weekly_data.values()),
+        "表示日付": display_labels
+    })
+    
+    fig = px.bar(
+        df_weekly,
+        x="表示日付",
+        y="回数",
+        color="回数",
+        color_continuous_scale="Oranges"  # うんこは茶色系
+    )
+    fig.update_layout(
+        xaxis_title="",
+        yaxis_title="回数",
+        showlegend=False,
+        coloraxis_showscale=False,
+        margin=dict(l=20, r=20, t=20, b=20),
+        height=250
+    )
+    fig.update_traces(texttemplate='%{y}', textposition='outside')
+    
+    st.plotly_chart(fig, use_container_width=True)
+    
+    # 統計情報
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("週間合計", f"{sum(weekly_data.values())} 回")
+    with col2:
+        avg = sum(weekly_data.values()) / 7
+        st.metric("1日平均", f"{avg:.1f} 回")
+
+# ===== タブ3: 血圧記録 =====
+with tab3:
     bp_data = load_bp_data()
     
     st.subheader("血圧を記録")
@@ -429,20 +556,19 @@ with tab2:
     else:
         st.info("まだ血圧の記録がありません")
 
-# ===== タブ3: 削除 =====
-with tab3:
+# ===== タブ4: 削除 =====
+with tab4:
     st.subheader("記録を削除")
     st.warning("削除すると元に戻せません")
     
-    delete_type = st.radio("削除する記録", ["トイレ記録", "血圧記録"], horizontal=True)
+    delete_type = st.radio("削除する記録", ["おしっこ", "うんこ", "血圧"], horizontal=True)
     
-    if delete_type == "トイレ記録":
+    if delete_type == "おしっこ":
         pee_data = load_pee_data()
         
         if pee_data:
             st.markdown("**最新の記録から削除できます**")
             
-            # 最新5件を表示
             recent_records = pee_data[-5:] if len(pee_data) >= 5 else pee_data
             recent_records = list(reversed(recent_records))
             
@@ -462,13 +588,37 @@ with tab3:
         else:
             st.info("記録がありません")
     
-    else:  # 血圧記録
+    elif delete_type == "うんこ":
+        poop_data = load_poop_data()
+        
+        if poop_data:
+            st.markdown("**最新の記録から削除できます**")
+            
+            recent_records = poop_data[-5:] if len(poop_data) >= 5 else poop_data
+            recent_records = list(reversed(recent_records))
+            
+            for i, record in enumerate(recent_records):
+                original_index = len(poop_data) - 1 - i
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    date_str = record.get('date', '')
+                    time_str = record.get('time', '')
+                    formatted_time = format_time_simple(time_str)
+                    st.write(f"{date_str}  {formatted_time}")
+                with col2:
+                    if st.button("削除", key=f"del_poop_{original_index}", type="secondary"):
+                        if delete_poop_record(original_index):
+                            st.success("削除しました")
+                            st.rerun()
+        else:
+            st.info("記録がありません")
+    
+    else:  # 血圧
         bp_data = load_bp_data()
         
         if bp_data:
             st.markdown("**最新の記録から削除できます**")
             
-            # 最新5件を表示
             recent_records = bp_data[-5:] if len(bp_data) >= 5 else bp_data
             recent_records = list(reversed(recent_records))
             
