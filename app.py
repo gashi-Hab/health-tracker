@@ -52,18 +52,18 @@ def format_time_simple(time_str):
     except:
         return time_str
 
-# ===== おしっこデータ管理関数 =====
+# ===== おしっこデータ管理関数（シート名: トイレ記録） =====
 
 def load_pee_data():
     """おしっこ記録を読み込む"""
     try:
         spreadsheet = get_spreadsheet()
-        worksheet = spreadsheet.worksheet("おしっこ記録")
+        worksheet = spreadsheet.worksheet("トイレ記録")
         records = worksheet.get_all_records()
         return records
     except gspread.exceptions.WorksheetNotFound:
         spreadsheet = get_spreadsheet()
-        worksheet = spreadsheet.add_worksheet(title="おしっこ記録", rows=1000, cols=3)
+        worksheet = spreadsheet.add_worksheet(title="トイレ記録", rows=1000, cols=3)
         worksheet.append_row(["date", "time", "datetime"])
         return []
     except Exception as e:
@@ -75,9 +75,9 @@ def save_pee_record(record):
     try:
         spreadsheet = get_spreadsheet()
         try:
-            worksheet = spreadsheet.worksheet("おしっこ記録")
+            worksheet = spreadsheet.worksheet("トイレ記録")
         except gspread.exceptions.WorksheetNotFound:
-            worksheet = spreadsheet.add_worksheet(title="おしっこ記録", rows=1000, cols=3)
+            worksheet = spreadsheet.add_worksheet(title="トイレ記録", rows=1000, cols=3)
             worksheet.append_row(["date", "time", "datetime"])
         
         worksheet.append_row([record["date"], record["time"], record["datetime"]])
@@ -90,7 +90,7 @@ def delete_pee_record(row_index):
     """おしっこ記録を削除"""
     try:
         spreadsheet = get_spreadsheet()
-        worksheet = spreadsheet.worksheet("おしっこ記録")
+        worksheet = spreadsheet.worksheet("トイレ記録")
         worksheet.delete_rows(row_index + 2)
         return True
     except Exception as e:
